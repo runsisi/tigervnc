@@ -233,26 +233,6 @@ void VNCServerST::processSocketWriteEvent(network::Socket* sock)
 
 // VNCServer methods
 
-void VNCServerST::blockUpdates()
-{
-  blockCounter++;
-
-  stopFrameClock();
-}
-
-void VNCServerST::unblockUpdates()
-{
-  assert(blockCounter > 0);
-
-  blockCounter--;
-
-  // Restart the frame clock if we have updates
-  if (blockCounter == 0) {
-    if (!comparer->is_empty())
-      startFrameClock();
-  }
-}
-
 void VNCServerST::setPixelBuffer(PixelBuffer* pb_, const ScreenSet& layout)
 {
   if (comparer)
