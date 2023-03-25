@@ -32,36 +32,6 @@ using namespace rfb;
 
 static LogWriter vlog("UpdateTracker");
 
-
-// -=- ClippingUpdateTracker
-
-void ClippingUpdateTracker::add_changed(const Region &region) {
-  ut->add_changed(region.intersect(clipRect));
-}
-
-void ClippingUpdateTracker::add_copied(const Region &dest, const Point &delta) {
-  // Clip the destination to the display area
-  Region clipdest = dest.intersect(clipRect);
-  if (clipdest.is_empty())  return;
-
-  // Clip the source to the screen
-  Region tmp = clipdest;
-  tmp.translate(delta.negate());
-  tmp.assign_intersect(clipRect);
-  if (!tmp.is_empty()) {
-    // Translate the source back to a destination region
-    tmp.translate(delta);
-
-    // Pass the copy region to the child tracker
-    ut->add_copied(tmp, delta);
-  }
-
-  // And add any bits that we had to remove to the changed region
-  tmp = clipdest.subtract(tmp);
-  if (!tmp.is_empty())
-    ut->add_changed(tmp);
-}
-
 // SimpleUpdateTracker
 
 SimpleUpdateTracker::SimpleUpdateTracker() {

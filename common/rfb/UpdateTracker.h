@@ -51,21 +51,6 @@ namespace rfb {
     virtual void add_copied(const Region &dest, const Point &delta) = 0;
   };
 
-  class ClippingUpdateTracker : public UpdateTracker {
-  public:
-    ClippingUpdateTracker() : ut(0) {}
-    ClippingUpdateTracker(UpdateTracker* ut_, const Rect& r=Rect()) : ut(ut_), clipRect(r) {}
-    
-    void setUpdateTracker(UpdateTracker* ut_) {ut = ut_;}
-    void setClipRect(const Rect& cr) {clipRect = cr;}
-
-    virtual void add_changed(const Region &region);
-    virtual void add_copied(const Region &dest, const Point &delta);
-  protected:
-    UpdateTracker* ut;
-    Rect clipRect;
-  };
-
   class SimpleUpdateTracker : public UpdateTracker {
   public:
     SimpleUpdateTracker();
