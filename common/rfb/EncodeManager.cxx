@@ -41,6 +41,7 @@
 #include <rfb/ZRLEEncoder.h>
 #include <rfb/TightEncoder.h>
 #include <rfb/TightJPEGEncoder.h>
+#include <rfb/H264Encoder.h>
 
 using namespace rfb;
 
@@ -69,6 +70,7 @@ enum EncoderClass {
   encoderTight,
   encoderTightJPEG,
   encoderZRLE,
+  encoderH264,
   encoderClassMax,
 };
 
@@ -104,6 +106,8 @@ static const char *encoderClassName(EncoderClass klass)
     return "Tight (JPEG)";
   case encoderZRLE:
     return "ZRLE";
+  case encoderH264:
+    return "H264";
   case encoderClassMax:
     break;
   }
@@ -147,6 +151,7 @@ EncodeManager::EncodeManager(SConnection* conn_)
   encoders[encoderTight] = new TightEncoder(conn);
   encoders[encoderTightJPEG] = new TightJPEGEncoder(conn);
   encoders[encoderZRLE] = new ZRLEEncoder(conn);
+  encoders[encoderH264] = new H264Encoder(conn);
 
   updates = 0;
   memset(&copyStats, 0, sizeof(copyStats));
@@ -249,6 +254,7 @@ bool EncodeManager::supported(int encoding)
   case encodingHextile:
   case encodingZRLE:
   case encodingTight:
+  case encodingH264:
     return true;
   default:
     return false;
@@ -324,6 +330,22 @@ void EncodeManager::doUpdate(bool allowLossy, const Region& changed_,
     updates++;
 
     prepareEncoders(allowLossy);
+
+    if (conn->getPreferredEncoding() == encodingH264) {
+      if (conn->client.supportsEncoding(pseudoEncodingLastRect))
+        nRects = 0xFFFF;
+      else {
+        nRects = 1;
+      }
+
+      conn->writer()->writeFramebufferUpdateStart(nRects);
+
+      encoders[encoderH264]->writeRect(pb, Palette());
+
+      conn->writer()->writeFramebufferUpdateEnd();
+
+      return;
+    }
 
     changed = changed_;
 
@@ -410,6 +432,10 @@ void EncodeManager::prepareEncoders(bool allowLossy)
     fullColour = encoderZRLE;
     bitmapRLE = indexedRLE = encoderZRLE;
     bitmap = indexed = encoderZRLE;
+    break;
+  case encodingH264:
+    solid = bitmap = bitmapRLE = encoderH264;
+    indexed = indexedRLE = fullColour = encoderH264;
     break;
   }
 

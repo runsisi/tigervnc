@@ -165,23 +165,97 @@ if(ENABLE_NLS)
 endif()
 
 option(ENABLE_H264 "Enable H.264 RFB encoding" ON)
+include(CMakeDependentOption)
+cmake_dependent_option(
+  WITH_SYSTEM_FFMPEG
+  "Build with system ffmpeg"
+  ON
+  "ENABLE_H264"
+  OFF
+)
+if(ENABLE_H264 AND NOT WITH_SYSTEM_FFMPEG)
+  set(FFMPEG_ROOT "$ENV{HOME}/working/ubuntu/ffmpeg-5.1.1" CACHE STRING "FFmpeg build root")
+endif()
 if(ENABLE_H264)
   if(WIN32)
     add_definitions("-DHAVE_H264")
     set(H264_LIBS "WIN")  # may be LIBAV in the future
     set(H264_LIBRARIES ole32 mfplat mfuuid wmcodecdspuuid)
   else()
-    find_package(Ffmpeg)
-    if (AVCODEC_FOUND AND AVUTIL_FOUND AND SWSCALE_FOUND)
-      set(H264_INCLUDE_DIRS ${AVCODEC_INCLUDE_DIRS} ${AVUTIL_INCLUDE_DIRS} ${SWSCALE_INCLUDE_DIRS})
-      set(H264_LIBRARIES ${AVCODEC_LIBRARIES} ${AVUTIL_LIBRARIES} ${SWSCALE_LIBRARIES})
-      set(H264_LIBRARY_DIRS ${AVCODEC_LIBRARY_DIRS} ${AVUTIL_LIBRARY_DIRS} ${SWSCALE_LIBRARY_DIRS})
+    if(WITH_SYSTEM_FFMPEG)
+      find_package(Ffmpeg)
+      if (AVCODEC_FOUND AND AVFILTER_FOUND AND AVUTIL_FOUND AND SWSCALE_FOUND)
+        set(H264_INCLUDE_DIRS ${AVCODEC_INCLUDE_DIRS} ${AVUTIL_INCLUDE_DIRS} ${SWSCALE_INCLUDE_DIRS})
+        set(H264_LIBRARIES ${AVCODEC_LIBRARIES} ${AVUTIL_LIBRARIES} ${SWSCALE_LIBRARIES})
+        set(H264_LIBRARY_DIRS ${AVCODEC_LIBRARY_DIRS} ${AVUTIL_LIBRARY_DIRS} ${SWSCALE_LIBRARY_DIRS})
+        add_definitions("-D__STDC_CONSTANT_MACROS")
+        add_definitions("-DHAVE_H264")
+        set(H264_LIBS "LIBAV")
+
+        list(APPEND H264_INCLUDE_DIRS ${AVFILTER_INCLUDE_DIRS})
+        list(APPEND H264_LIBRARIES ${AVFILTER_LIBRARIES})
+        list(APPEND H264_LIBRARY_DIRS ${AVFILTER_LIBRARY_DIRS})
+
+        add_subdirectory(third)
+        find_package(PkgConfig REQUIRED)
+        pkg_check_modules(drm REQUIRED IMPORTED_TARGET libdrm)
+      else()
+        set(H264_LIBS "NONE")
+        message(WARNING "FFMPEG support can't be found")
+      endif()
+    else()
       add_definitions("-D__STDC_CONSTANT_MACROS")
       add_definitions("-DHAVE_H264")
       set(H264_LIBS "LIBAV")
-    else()
-      set(H264_LIBS "NONE")
-      message(WARNING "FFMPEG support can't be found")
+
+      find_package(FFmpeg REQUIRED)
+      find_package(ZLIB REQUIRED)
+      find_package(BZip2 REQUIRED)
+      find_package(LibLZMA REQUIRED)
+      find_package(sdl2 REQUIRED CONFIG)
+
+      find_package(PkgConfig REQUIRED)
+      pkg_check_modules(drm REQUIRED IMPORTED_TARGET libdrm)
+      pkg_check_modules(x11 REQUIRED IMPORTED_TARGET x11 xext xv xfixes xau xdmcp)
+      pkg_check_modules(xcb REQUIRED IMPORTED_TARGET xcb xcb-shm xcb-xfixes xcb-shape)
+      pkg_check_modules(va REQUIRED IMPORTED_TARGET libva libva-drm libva-x11 libva-wayland)
+      pkg_check_modules(alsa REQUIRED IMPORTED_TARGET alsa)
+      pkg_check_modules(sndio REQUIRED IMPORTED_TARGET sndio)
+      pkg_check_modules(pa REQUIRED IMPORTED_TARGET libpulse libpulse-mainloop-glib)
+      pkg_check_modules(vorbis REQUIRED IMPORTED_TARGET vorbis vorbisenc)
+      pkg_check_modules(opus REQUIRED IMPORTED_TARGET opus)
+      pkg_check_modules(ogg REQUIRED IMPORTED_TARGET ogg)
+      #pkg_check_modules(lame REQUIRED IMPORTED_TARGET lame)
+      pkg_check_modules(vdpau REQUIRED IMPORTED_TARGET vdpau)
+      pkg_check_modules(mpp REQUIRED IMPORTED_TARGET rockchip_mpp)
+
+      # create an interface library to make --start-group, --end-group work!!!
+      add_library(ffmpeg_depends INTERFACE IMPORTED)
+      target_link_libraries(
+        ffmpeg_depends
+        INTERFACE
+        -Wl,--start-group
+        PkgConfig::drm
+        PkgConfig::va
+        PkgConfig::vdpau
+        PkgConfig::alsa
+        PkgConfig::sndio
+        PkgConfig::pa
+        PkgConfig::vorbis
+        PkgConfig::opus
+        PkgConfig::ogg
+        #PkgConfig::lame
+        PkgConfig::xcb
+        PkgConfig::x11
+        ZLIB::ZLIB
+        BZip2::BZip2
+        LibLZMA::LibLZMA
+        SDL2::SDL2
+        PkgConfig::mpp
+        -Wl,--end-group
+      )
+
+      add_subdirectory(third)
     endif()
   endif()
   add_definitions("-DH264_${H264_LIBS}")
