@@ -171,14 +171,36 @@ if(ENABLE_H264)
     set(H264_LIBS "WIN")  # may be LIBAV in the future
     set(H264_LIBRARIES ole32 mfplat mfuuid wmcodecdspuuid)
   else()
+    set(FFMPEG_INSTALL_ROOT "" CACHE STRING "FFmpeg install root")
+    list(APPEND CMAKE_FIND_ROOT_PATH "${FFMPEG_INSTALL_ROOT}")
+
     find_package(Ffmpeg)
-    if (AVCODEC_FOUND AND AVUTIL_FOUND AND SWSCALE_FOUND)
+    if (AVCODEC_FOUND AND AVUTIL_FOUND AND SWSCALE_FOUND AND AVFILTER_FOUND)
       set(H264_INCLUDE_DIRS ${AVCODEC_INCLUDE_DIRS} ${AVUTIL_INCLUDE_DIRS} ${SWSCALE_INCLUDE_DIRS})
       set(H264_LIBRARIES ${AVCODEC_LIBRARIES} ${AVUTIL_LIBRARIES} ${SWSCALE_LIBRARIES})
       set(H264_LIBRARY_DIRS ${AVCODEC_LIBRARY_DIRS} ${AVUTIL_LIBRARY_DIRS} ${SWSCALE_LIBRARY_DIRS})
       add_definitions("-D__STDC_CONSTANT_MACROS")
       add_definitions("-DHAVE_H264")
       set(H264_LIBS "LIBAV")
+
+      list(APPEND H264_INCLUDE_DIRS ${AVFILTER_INCLUDE_DIRS})
+      list(APPEND H264_LIBRARIES ${AVFILTER_LIBRARIES})
+      list(APPEND H264_LIBRARY_DIRS ${AVFILTER_LIBRARY_DIRS})
+
+      list(REMOVE_DUPLICATES H264_INCLUDE_DIRS)
+
+      find_package(Rkmpp)
+      if(RKMPP_FOUND)
+        list(APPEND H264_INCLUDE_DIRS ${RKMPP_INCLUDE_DIRS})
+        list(APPEND H264_LIBRARIES ${RKMPP_LIBRARIES})
+        list(APPEND H264_LIBRARY_DIRS ${RKMPP_LIBRARY_DIRS})
+        add_definitions("-DH264_RKMPP")
+      endif()
+
+      find_package(PkgConfig REQUIRED)
+      pkg_check_modules(drm REQUIRED IMPORTED_TARGET libdrm)
+
+      add_subdirectory(third)
     else()
       set(H264_LIBS "NONE")
       message(WARNING "FFMPEG support can't be found")

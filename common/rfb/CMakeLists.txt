@@ -70,9 +70,33 @@ target_link_libraries(rfb ${JPEG_LIBRARIES} ${PIXMAN_LIBRARIES})
 target_link_directories(rfb PUBLIC ${PIXMAN_LIBRARY_DIRS})
 
 if(ENABLE_H264 AND NOT H264_LIBS STREQUAL "NONE")
+  # Client side decoding
   target_sources(rfb PRIVATE H264Decoder.cxx H264DecoderContext.cxx)
+  if(RKMPP_FOUND)
+    target_sources(rfb PRIVATE H264RkmppDecoderContext.cxx)
+  endif()
+
+  # Server side encoding
   if(H264_LIBS STREQUAL "LIBAV")
     target_sources(rfb PRIVATE H264LibavDecoderContext.cxx)
+    target_sources(rfb PRIVATE H264Encoder.cxx kmsgrab.cxx)
+
+    include(CheckSymbolExists)
+    set(CMAKE_REQUIRED_INCLUDES ${drm_INCLUDE_DIRS})
+    set(CMAKE_REQUIRED_LIBRARIES ${drm_LIBRARIES})
+    check_symbol_exists(drmModeGetFB2 "xf86drmMode.h" HAVE_LIBDRM_GETFB2)
+    if(HAVE_LIBDRM_GETFB2)
+      target_compile_definitions(rfb PUBLIC HAVE_LIBDRM_GETFB2)
+    endif()
+
+    target_compile_options(rfb PRIVATE -Wno-unused-function)
+    target_compile_options(rfb PRIVATE -Wno-missing-field-initializers)
+    target_compile_options(rfb PRIVATE -Wno-sign-compare)
+
+    target_include_directories(rfb PUBLIC ${drm_INCLUDE_DIRS})
+
+    target_link_libraries(rfb ${drm_LIBRARIES})
+    target_link_libraries(rfb neatvnc)
   elseif(H264_LIBS STREQUAL "WIN")
     target_sources(rfb PRIVATE H264WinDecoderContext.cxx)
   endif()

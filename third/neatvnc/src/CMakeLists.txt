@@ -1,0 +1,10 @@
+add_library(
+  neatvnc
+  STATIC
+  vec.c
+)
+target_include_directories(
+  neatvnc
+  PUBLIC
+  ${CMAKE_CURRENT_LIST_DIR}/../include
+)

@@ -24,7 +24,10 @@
 
 #include <rfb/H264DecoderContext.h>
 
-#ifdef H264_LIBAV
+#ifdef H264_RKMPP
+#include <rfb/H264RkmppDecoderContext.h>
+#define H264DecoderContextType H264RkmppDecoderContext
+#elif H264_LIBAV
 #include <rfb/H264LibavDecoderContext.h>
 #define H264DecoderContextType H264LibavDecoderContext
 #elif H264_WIN
