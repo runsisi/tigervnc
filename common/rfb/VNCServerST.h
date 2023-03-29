@@ -80,7 +80,6 @@ namespace rfb {
     // Methods overridden from VNCServer
 
     virtual void setPixelBuffer(PixelBuffer* pb, const ScreenSet& layout);
-    virtual void setPixelBuffer(PixelBuffer* pb);
     virtual void setScreenLayout(const ScreenSet& layout);
     virtual const PixelBuffer* getPixelBuffer() const { return pb; }
 

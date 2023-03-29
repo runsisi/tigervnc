@@ -288,7 +288,7 @@ void XDesktop::stop() {
   delete queryConnectDialog;
   queryConnectDialog = 0;
 
-  server->setPixelBuffer(0);
+  server->setPixelBuffer(0, ScreenSet{});
   server = 0;
 
   delete pb;

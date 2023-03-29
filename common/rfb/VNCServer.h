@@ -39,7 +39,6 @@ namespace rfb {
     // the previous pixel buffer, this may result in protocol messages being
     // sent, or clients being disconnected.
     virtual void setPixelBuffer(PixelBuffer* pb, const ScreenSet& layout) = 0;
-    virtual void setPixelBuffer(PixelBuffer* pb) = 0;
 
     // setScreenLayout() modifies the current screen layout without changing
     // the pixelbuffer. Clients will be notified of the new layout.

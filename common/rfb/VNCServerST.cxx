@@ -271,37 +271,6 @@ void VNCServerST::setPixelBuffer(PixelBuffer* pb_, const ScreenSet& layout)
   }
 }
 
-void VNCServerST::setPixelBuffer(PixelBuffer* pb_)
-{
-  ScreenSet layout = screenLayout;
-
-  // Check that the screen layout is still valid
-  if (pb_ && !layout.validate(pb_->width(), pb_->height())) {
-    Rect fbRect;
-    ScreenSet::iterator iter, iter_next;
-
-    fbRect.setXYWH(0, 0, pb_->width(), pb_->height());
-
-    for (iter = layout.begin();iter != layout.end();iter = iter_next) {
-      iter_next = iter; ++iter_next;
-      if (iter->dimensions.enclosed_by(fbRect))
-          continue;
-      iter->dimensions = iter->dimensions.intersect(fbRect);
-      if (iter->dimensions.is_empty()) {
-        slog.info("Removing screen %d (%x) as it is completely outside the new framebuffer",
-                  (int)iter->id, (unsigned)iter->id);
-        layout.remove_screen(iter->id);
-      }
-    }
-  }
-
-  // Make sure that we have at least one screen
-  if (layout.num_screens() == 0)
-    layout.add_screen(Screen(0, 0, 0, pb_->width(), pb_->height(), 0));
-
-  setPixelBuffer(pb_, layout);
-}
-
 void VNCServerST::setScreenLayout(const ScreenSet& layout)
 {
   if (!pb)
