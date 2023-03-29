@@ -113,47 +113,6 @@ namespace rfb {
     virtual ~SDesktop() {}
   };
 
-  // -=- SStaticDesktop
-  //     Trivial implementation of the SDesktop interface, which provides
-  //     dummy input handlers and event processing routine, and exports
-  //     a plain black desktop of the specified format.
-  class SStaticDesktop : public SDesktop {
-  public:
-    SStaticDesktop(const Point& size) : server(0), buffer(0) {
-      PixelFormat pf;
-      const uint8_t black[4] = { 0, 0, 0, 0 };
-      buffer = new ManagedPixelBuffer(pf, size.x, size.y);
-      if (buffer)
-        buffer->fillRect(buffer->getRect(), black);
-    }
-    SStaticDesktop(const Point& size, const PixelFormat& pf) : buffer(0) {
-      const uint8_t black[4] = { 0, 0, 0, 0 };
-      buffer = new ManagedPixelBuffer(pf, size.x, size.y);
-      if (buffer)
-        buffer->fillRect(buffer->getRect(), black);
-    }
-    virtual ~SStaticDesktop() {
-      if (buffer) delete buffer;
-    }
-
-    virtual void start(VNCServer* vs) {
-      server = vs;
-      server->setPixelBuffer(buffer);
-    }
-    virtual void stop() {
-      server->setPixelBuffer(0);
-      server = 0;
-    }
-    virtual void queryConnection(network::Socket* sock,
-                                 const char* /*userName*/) {
-      server->approveConnection(sock, true, NULL);
-    }
-
-  protected:
-    VNCServer* server;
-    ManagedPixelBuffer* buffer;
-  };
-
 };
 
 #endif // __RFB_SDESKTOP_H__
