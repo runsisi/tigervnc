@@ -22,6 +22,8 @@
 extern "C" {
 #include <libavutil/imgutils.h>
 #include <libavcodec/version.h>
+#include <libavutil/hwcontext.h>
+#include <libavutil/log.h>
 }
 #if LIBAVCODEC_VERSION_MAJOR > 57 || LIBAVCODEC_VERSION_MAJOR == 57 && LIBAVCODEC_VERSION_MINOR >= 37
 #define FFMPEG_DECODE_VIDEO2_DEPRECATED
@@ -29,6 +31,8 @@ extern "C" {
 #if LIBAVCODEC_VERSION_MAJOR >= 58
 #define FFMPEG_INIT_PACKET_DEPRECATED
 #endif
+
+#include <xf86drm.h>
 
 #include <rfb/Exception.h>
 #include <rfb/LogWriter.h>
@@ -38,6 +42,26 @@ extern "C" {
 using namespace rfb;
 
 static LogWriter vlog("H264LibavDecoderContext");
+
+static int find_render_node(char *node, size_t maxlen) {
+  int r = -ENOENT;
+  drmDevice *devices[64];
+
+  int n = drmGetDevices2(0, devices, sizeof(devices) / sizeof(devices[0]));
+  for (int i = 0; i < n; ++i) {
+    drmDevice *dev = devices[i];
+    if (!(dev->available_nodes & (1 << DRM_NODE_RENDER)))
+      continue;
+
+    strncpy(node, dev->nodes[DRM_NODE_RENDER], maxlen);
+    node[maxlen - 1] = '\0';
+    r = 0;
+    break;
+  }
+
+  drmFreeDevices(devices, n);
+  return r;
+}
 
 bool H264LibavDecoderContext::initCodec() {
   os::AutoMutex lock(&mutex);
@@ -67,6 +91,21 @@ bool H264LibavDecoderContext::initCodec() {
     av_parser_close(parser);
     vlog.error("Could not allocate video codec context");
     return false;
+  }
+
+  char render_node[64];
+  int r = find_render_node(render_node, sizeof(render_node));
+  if (r < 0) {
+    av_log(NULL, AV_LOG_ERROR, "Could not find render node");
+  } else {
+    // hwaccel
+    AVBufferRef *hwdevice_ref = NULL;
+    r = av_hwdevice_ctx_create(&hwdevice_ref, AV_HWDEVICE_TYPE_VAAPI, render_node, NULL, 0);
+    if (r < 0) {
+      av_log(NULL, AV_LOG_ERROR, "Device creation failed: %d\n", r);
+    } else {
+      avctx->hw_device_ctx = hwdevice_ref;
+    }
   }
 
   frame = av_frame_alloc();
