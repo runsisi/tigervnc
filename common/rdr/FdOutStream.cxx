@@ -122,9 +122,9 @@ size_t FdOutStream::writeFd(const void* data, size_t length)
     // blocking, which is normally 1. Use MSG_DONTWAIT to avoid
     // blocking, when possible.
 #ifndef MSG_DONTWAIT
-    n = ::send(fd, (const char*)data, length, 0);
+    n = ::send(fd, (const char*)data, length, MSG_NOSIGNAL);
 #else
-    n = ::send(fd, (const char*)data, length, MSG_DONTWAIT);
+    n = ::send(fd, (const char*)data, length, MSG_DONTWAIT | MSG_NOSIGNAL);
 #endif
   } while (n < 0 && (errorNumber == EINTR));
 
