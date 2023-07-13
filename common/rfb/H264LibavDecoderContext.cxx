@@ -255,6 +255,38 @@ void H264LibavDecoderContext::decode(const uint8_t* h264_in_buffer,
   if (!frame->height)
     return;
 
+  const AVPixFmtDescriptor *pixdesc = av_pix_fmt_desc_get(avctx->pix_fmt);
+  if (pixdesc && pixdesc->flags & AV_PIX_FMT_FLAG_HWACCEL) {
+    // hwaccel
+    AVFrame *sw_frame = av_frame_alloc();
+    sw_frame->format = AV_PIX_FMT_RGB32;
+    int r = av_hwframe_transfer_data(sw_frame, frame, 0);
+    if (r < 0) {
+      fprintf(stderr, "Error transferring the data to system memory\n");
+      av_frame_free(&sw_frame);
+      return;
+    }
+
+    int size = av_image_get_buffer_size((AVPixelFormat)sw_frame->format, sw_frame->width, sw_frame->height, 1);
+    r = av_image_copy_to_buffer(swsBuffer, size,
+      (const uint8_t * const *)sw_frame->data,
+      (const int *)sw_frame->linesize, (AVPixelFormat)sw_frame->format,
+      sw_frame->width, sw_frame->height, 1);
+    if (r < 0) {
+      fprintf(stderr, "Can not copy image to buffer\n");
+      av_frame_free(&sw_frame);
+      return;
+    }
+
+    av_frame_free(&sw_frame);
+
+    int stride;
+    pb->getBuffer(rect, &stride);
+    pb->imageRect(rect, swsBuffer, stride);
+    return;
+  }
+
+  // w/o hwaccel
   sws = sws_getCachedContext(sws, frame->width, frame->height, avctx->pix_fmt,
                              frame->width, frame->height, AV_PIX_FMT_RGB32,
                              0, NULL, NULL, NULL);
