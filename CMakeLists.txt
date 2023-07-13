@@ -189,6 +189,14 @@ if(ENABLE_H264)
 
       list(REMOVE_DUPLICATES H264_INCLUDE_DIRS)
 
+      find_package(Rkmpp)
+      if(RKMPP_FOUND)
+        list(APPEND H264_INCLUDE_DIRS ${RKMPP_INCLUDE_DIRS})
+        list(APPEND H264_LIBRARIES ${RKMPP_LIBRARIES})
+        list(APPEND H264_LIBRARY_DIRS ${RKMPP_LIBRARY_DIRS})
+        add_definitions("-DH264_RKMPP")
+      endif()
+
       add_subdirectory(third)
       find_package(PkgConfig REQUIRED)
       pkg_check_modules(drm REQUIRED IMPORTED_TARGET libdrm)
