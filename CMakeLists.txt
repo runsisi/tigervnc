@@ -115,6 +115,11 @@ endif()
 # X11 stuff. It's in a if() so that we can say REQUIRED
 if(UNIX AND NOT APPLE)
   find_package(X11 REQUIRED)
+
+  option(ENABLE_XV "Enable X video extension" ON)
+  if(ENABLE_XV AND NOT X11_Xv_FOUND)
+    message(FATAL_ERROR "Xv not found")
+  endif()
 endif()
 
 # Check for zlib
