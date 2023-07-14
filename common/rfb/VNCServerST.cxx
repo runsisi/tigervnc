@@ -771,10 +771,7 @@ void VNCServerST::writeUpdate()
     ci_next = ci; ci_next++;
     (*ci)->add_copied(ui.copied, ui.copy_delta);
     (*ci)->add_changed(ui.changed);
-    // (*ci)->writeFramebufferUpdateOrClose();
-
-    // update the whole screen for h264 encoding
-    (*ci)->pixelBufferChange();
+    (*ci)->writeFramebufferUpdateOrClose();
   }
 }
 
