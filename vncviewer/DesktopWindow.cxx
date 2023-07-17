@@ -686,16 +686,16 @@ void DesktopWindow::resize(int x, int y, int w, int h)
 }
 
 
-void DesktopWindow::menuOverlay(void* data)
+void DesktopWindow::menuOverlay(void* /*data*/)
 {
-  DesktopWindow *self;
-
-  self = (DesktopWindow*)data;
-
-  if (strcmp((const char*)menuKey, "") != 0) {
-    self->setOverlay(_("Press %s to open the context menu"),
-                     (const char*)menuKey);
-  }
+  // DesktopWindow *self;
+  //
+  // self = (DesktopWindow*)data;
+  //
+  // if (strcmp((const char*)menuKey, "") != 0) {
+  //   self->setOverlay(_("Press %s to open the context menu"),
+  //                    (const char*)menuKey);
+  // }
 }
 
 void DesktopWindow::setOverlay(const char* text, ...)

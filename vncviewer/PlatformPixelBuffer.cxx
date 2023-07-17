@@ -111,21 +111,21 @@ rfb::Rect PlatformPixelBuffer::getDamage(void)
   if (r.width() == 0 || r.height() == 0)
     return r;
 
-  GC gc;
-
-  gc = XCreateGC(fl_display, pixmap, 0, NULL);
-  if (shminfo) {
-    XShmPutImage(fl_display, pixmap, gc, xim,
-                 r.tl.x, r.tl.y, r.tl.x, r.tl.y,
-                 r.width(), r.height(), False);
-    // Need to make sure the X server has finished reading the
-    // shared memory before we return
-    XSync(fl_display, False);
-  } else {
-    XPutImage(fl_display, pixmap, gc, xim,
-              r.tl.x, r.tl.y, r.tl.x, r.tl.y, r.width(), r.height());
-  }
-  XFreeGC(fl_display, gc);
+  // GC gc;
+  //
+  // gc = XCreateGC(fl_display, pixmap, 0, NULL);
+  // if (shminfo) {
+  //   XShmPutImage(fl_display, pixmap, gc, xim,
+  //                r.tl.x, r.tl.y, r.tl.x, r.tl.y,
+  //                r.width(), r.height(), False);
+  //   // Need to make sure the X server has finished reading the
+  //   // shared memory before we return
+  //   XSync(fl_display, False);
+  // } else {
+  //   XPutImage(fl_display, pixmap, gc, xim,
+  //             r.tl.x, r.tl.y, r.tl.x, r.tl.y, r.width(), r.height());
+  // }
+  // XFreeGC(fl_display, gc);
 #endif
 
   return r;

@@ -23,12 +23,24 @@
 #include <assert.h>
 #include <stdlib.h>
 
+#include <X11/Xlib.h>
+#include <sys/shm.h>
+
 #include <FL/Fl_RGB_Image.H>
 #include <FL/x.H>
+#include <FL/Fl_Device.H>
 
 #include <rdr/Exception.h>
+#include <rfb/LogWriter.h>
 
 #include "Surface.h"
+
+// see <xorg/fourcc.h>
+#ifndef FOURCC_NV12
+#define FOURCC_NV12 0x3231564e
+#endif
+
+static rfb::LogWriter vlog("Surface::Xv");
 
 void Surface::clear(unsigned char r, unsigned char g, unsigned char b, unsigned char a)
 {
@@ -45,18 +57,19 @@ void Surface::clear(unsigned char r, unsigned char g, unsigned char b, unsigned 
 
 void Surface::draw(int src_x, int src_y, int x, int y, int w, int h)
 {
-  Picture winPict;
-
-  winPict = XRenderCreatePicture(fl_display, fl_window, visFormat, 0, NULL);
-  XRenderComposite(fl_display, PictOpSrc, picture, None, winPict,
-                   src_x, src_y, 0, 0, x, y, w, h);
-  XRenderFreePicture(fl_display, winPict);
+  XvShmPutImage(fl_display, xv_port, fl_window, fl_gc, xvimage,
+    src_x, src_y, xvimage->width, xvimage->height,
+    x, y, w, h, False);
 }
 
 void Surface::draw(Surface* dst, int src_x, int src_y, int x, int y, int w, int h)
 {
-  XRenderComposite(fl_display, PictOpSrc, picture, None, dst->picture,
-                   src_x, src_y, 0, 0, x, y, w, h);
+  // XvShmPutImage(fl_display, xv_port, fl_window, fl_gc, dst->xvimage,
+  //   src_x, src_y, dst->xvimage->width, dst->xvimage->height,
+  //   x, y, w, h, False);
+
+  dst->xvimage = xvimage;
+  xvimage = NULL;
 }
 
 static Picture alpha_mask(int a)
@@ -90,6 +103,8 @@ void Surface::blend(int src_x, int src_y, int x, int y, int w, int h, int a)
 {
   Picture winPict, alpha;
 
+  return;
+
   winPict = XRenderCreatePicture(fl_display, fl_window, visFormat, 0, NULL);
   alpha = alpha_mask(a);
   XRenderComposite(fl_display, PictOpOver, picture, alpha, winPict,
@@ -104,6 +119,8 @@ void Surface::blend(Surface* dst, int src_x, int src_y, int x, int y, int w, int
 {
   Picture alpha;
 
+  return;
+
   alpha = alpha_mask(a);
   XRenderComposite(fl_display, PictOpOver, picture, alpha, dst->picture,
                    src_x, src_y, 0, 0, x, y, w, h);
@@ -114,61 +131,99 @@ void Surface::blend(Surface* dst, int src_x, int src_y, int x, int y, int w, int
 
 void Surface::alloc()
 {
-  XRenderPictFormat templ;
-  XRenderPictFormat* format;
+  // assume Xv and XShm are always available!
 
   // Might not be open at this point
   fl_open_display();
 
-  pixmap = XCreatePixmap(fl_display, XDefaultRootWindow(fl_display),
-                         width(), height(), 32);
+  // debug only
+  XSynchronize(fl_display, True);
 
-  // Our code assumes a BGRA byte order, regardless of what the endian
-  // of the machine is or the native byte order of XImage, so make sure
-  // we find such a format
-  templ.type = PictTypeDirect;
-  templ.depth = 32;
-  if (XImageByteOrder(fl_display) == MSBFirst) {
-    templ.direct.alpha = 0;
-    templ.direct.red   = 8;
-    templ.direct.green = 16;
-    templ.direct.blue  = 24;
-  } else {
-    templ.direct.alpha = 24;
-    templ.direct.red   = 16;
-    templ.direct.green = 8;
-    templ.direct.blue  = 0;
+  unsigned num_adaptors;
+  XvAdaptorInfo *adaptors;
+  int r = XvQueryAdaptors(fl_display, XDefaultRootWindow(fl_display), &num_adaptors, &adaptors);
+  if (r != Success) {
+    throw rdr::Exception("XvQueryAdaptors: %d", r);
   }
-  templ.direct.alphaMask = 0xff;
-  templ.direct.redMask = 0xff;
-  templ.direct.greenMask = 0xff;
-  templ.direct.blueMask = 0xff;
 
-  format = XRenderFindFormat(fl_display, PictFormatType | PictFormatDepth |
-                             PictFormatRed | PictFormatRedMask |
-                             PictFormatGreen | PictFormatGreenMask |
-                             PictFormatBlue | PictFormatBlueMask |
-                             PictFormatAlpha | PictFormatAlphaMask,
-                             &templ, 0);
+  for (int i = 0; i < (int)num_adaptors && !xv_port; i++) {
+    XvAdaptorInfo *adaptor = &adaptors[i];
 
-  if (!format)
-    throw rdr::Exception("XRenderFindFormat");
+    if (!(adaptor->type & XvImageMask)) {
+      vlog.debug("Xv adaptor %s has no support for XvImageMask", adaptor->name);
+      continue;
+    }
 
-  picture = XRenderCreatePicture(fl_display, pixmap, format, 0, NULL);
+    for (int j = 0; j < (int)adaptor->num_ports; j++) {
+      r = XvGrabPort(fl_display, adaptor->base_id + j, 0);
+      if (r != Success) {
+        vlog.error("XvGrabPort %d for Xv adaptor %s failed: %d", j, adaptor->name, r);
+        continue;
+      }
 
-  visFormat = XRenderFindVisualFormat(fl_display, fl_visual->visual);
+      xv_port = adaptor->base_id + j;
+      vlog.info("Xv adaptor %s with port %d", adaptor->name, j);
+      break;
+    }
+  }
+
+  XvFreeAdaptorInfo(adaptors);
+
+  if (!xv_port) {
+    throw rdr::Exception("No Xv port available");
+  }
+
+  // assume NV12
+  xvimage = XvShmCreateImage(fl_display, xv_port, FOURCC_NV12, NULL, width(), height(), &shm);
+  if (!xvimage) {
+    throw rdr::Exception("XvShmCreateImage");
+  }
+
+  vlog.info("Xshm image size is %d", xvimage->data_size);
+
+  shm.shmid = shmget(IPC_PRIVATE, xvimage->data_size, IPC_CREAT | 0777);
+  shm.shmaddr = (char *)shmat(shm.shmid, NULL, 0);
+  if (shm.shmaddr == (char *)-1) {
+    throw rdr::Exception("shmat");
+  }
+
+  xvimage->data = shm.shmaddr;
+  shm.readOnly = False;
+
+  if (!XShmAttach(fl_display, &shm)) {
+    throw rdr::Exception("XShmAttach");
+  }
+
+  XSync(fl_display, False);
+
+  // it will be deleted as soon as we detach later
+  shmctl(shm.shmid, IPC_RMID, NULL);
 }
 
 void Surface::dealloc()
 {
-  XRenderFreePicture(fl_display, picture);
-  XFreePixmap(fl_display, pixmap);
+  if (shm.shmaddr != (char *)-1) {
+    XShmDetach(fl_display, &shm);
+    XSync(fl_display, False);
+    shmdt(shm.shmaddr);
+    shm.shmaddr = (char *)-1;
+  }
+
+  if (xvimage) {
+    XFree(xvimage);
+  }
+
+  if (xv_port) {
+    XvUngrabPort(fl_display, xv_port, 0);
+  }
 }
 
 void Surface::update(const Fl_RGB_Image* image)
 {
   XImage* img;
   GC gc;
+
+  return;
 
   int x, y;
   const unsigned char* in;

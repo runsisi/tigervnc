@@ -259,7 +259,7 @@ void H264LibavDecoderContext::decode(const uint8_t* h264_in_buffer,
   if (pixdesc && pixdesc->flags & AV_PIX_FMT_FLAG_HWACCEL) {
     // hwaccel
     AVFrame *sw_frame = av_frame_alloc();
-    sw_frame->format = AV_PIX_FMT_RGB32;
+    sw_frame->format = AV_PIX_FMT_NV12;
     int r = av_hwframe_transfer_data(sw_frame, frame, 0);
     if (r < 0) {
       fprintf(stderr, "Error transferring the data to system memory\n");

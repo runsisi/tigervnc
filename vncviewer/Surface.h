@@ -26,6 +26,12 @@
 typedef struct CGImage* CGImageRef;
 #else
 #include <X11/extensions/Xrender.h>
+
+#include <X11/extensions/Xv.h>
+#include <X11/extensions/Xvlib.h>
+#include <X11/extensions/XShm.h>
+
+#include <memory>
 #endif
 
 class Fl_RGB_Image;
@@ -64,6 +70,11 @@ protected:
   Pixmap pixmap;
   Picture picture;
   XRenderPictFormat* visFormat;
+
+  // Xv
+  XvPortID xv_port = 0;
+  XvImage *xvimage = NULL;
+  XShmSegmentInfo shm;
 #endif
 };
 
