@@ -35,6 +35,8 @@
 
 #include "Surface.h"
 
+#define HAVE_XV 1
+
 class PlatformPixelBuffer: public rfb::FullFramePixelBuffer, public Surface {
 public:
   PlatformPixelBuffer(int width, int height);
@@ -57,7 +59,13 @@ protected:
 
 protected:
   XShmSegmentInfo *shminfo;
+
+#if HAVE_XV
+  XvImage *xvim;
+#else
   XImage *xim;
+#endif
+
 #endif
 };
 

@@ -44,10 +44,19 @@ PlatformPixelBuffer::PlatformPixelBuffer(int width, int height) :
                        0, 0, NULL, 0),
   Surface(width, height)
 #if !defined(WIN32) && !defined(__APPLE__)
-  , shminfo(NULL), xim(NULL)
+  , shminfo(NULL),
+#if HAVE_XV
+  xvim(NULL)
+#else
+  xim(NULL)
+#endif
 #endif
 {
 #if !defined(WIN32) && !defined(__APPLE__)
+#if HAVE_XV
+  setupShm(width, height);
+  setBuffer(width, height, (uint8_t*)xvim->data, xvim->pitches[0]);
+#else
   if (!setupShm(width, height)) {
     xim = XCreateImage(fl_display, CopyFromParent, 32,
                        ZPixmap, 0, 0, width, height, 32, 0);
@@ -66,6 +75,7 @@ PlatformPixelBuffer::PlatformPixelBuffer(int width, int height) :
 
   // On X11, the Pixmap backing this Surface is uninitialized.
   clear(0, 0, 0);
+#endif
 #else
   setBuffer(width, height, (uint8_t*)Surface::data, width);
 #endif
@@ -83,10 +93,17 @@ PlatformPixelBuffer::~PlatformPixelBuffer()
     shminfo = NULL;
   }
 
+#if HAVE_XV
+  if (xvim) {
+    XFree(xvim);
+    xvim = NULL;
+  }
+#else
   // XDestroyImage() will free(xim->data) if appropriate
   if (xim)
     XDestroyImage(xim);
   xim = NULL;
+#endif
 #endif
 }
 
@@ -158,6 +175,25 @@ bool PlatformPixelBuffer::setupShm(int width, int height)
 
   shminfo = new XShmSegmentInfo;
 
+#if HAVE_XV
+  // see <xorg/fourcc.h>
+#ifndef FOURCC_NV12
+#define FOURCC_NV12 0x3231564e
+#endif
+
+  // assume NV12
+  xvim = XvShmCreateImage(fl_display, xv_port, FOURCC_NV12, NULL, width, height, shminfo);
+  if (!xvim) {
+    goto free_shminfo;
+  }
+
+  shminfo->shmid = shmget(IPC_PRIVATE, xvim->data_size, IPC_CREAT | 0777);
+  if (shminfo->shmid == -1) {
+    goto free_xim;
+  }
+
+  shminfo->shmaddr = xvim->data = (char*)shmat(shminfo->shmid, NULL, 0);
+#else
   xim = XShmCreateImage(fl_display, CopyFromParent, 32,
                         ZPixmap, 0, shminfo, width, height);
   if (!xim)
@@ -170,6 +206,7 @@ bool PlatformPixelBuffer::setupShm(int width, int height)
     goto free_xim;
 
   shminfo->shmaddr = xim->data = (char*)shmat(shminfo->shmid, 0, 0);
+#endif
   shmctl(shminfo->shmid, IPC_RMID, 0); // to avoid memory leakage
   if (shminfo->shmaddr == (char *)-1)
     goto free_xim;
@@ -201,8 +238,13 @@ free_shmaddr:
   shmdt(shminfo->shmaddr);
 
 free_xim:
+#if HAVE_XV
+  XFree(xvimage);
+  xvim = NULL;
+#else
   XDestroyImage(xim);
   xim = NULL;
+#endif
 
 free_shminfo:
   delete shminfo;

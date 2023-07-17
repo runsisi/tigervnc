@@ -57,9 +57,11 @@ void Surface::clear(unsigned char r, unsigned char g, unsigned char b, unsigned 
 
 void Surface::draw(int src_x, int src_y, int x, int y, int w, int h)
 {
-  XvShmPutImage(fl_display, xv_port, fl_window, fl_gc, xvimage,
-    src_x, src_y, xvimage->width, xvimage->height,
-    x, y, w, h, False);
+  if (xvimage) {
+    XvShmPutImage(fl_display, xv_port, fl_window, fl_gc, xvimage,
+      src_x, src_y, xvimage->width, xvimage->height,
+      x, y, w, h, False);
+  }
 }
 
 void Surface::draw(Surface* dst, int src_x, int src_y, int x, int y, int w, int h)
@@ -69,7 +71,6 @@ void Surface::draw(Surface* dst, int src_x, int src_y, int x, int y, int w, int 
   //   x, y, w, h, False);
 
   dst->xvimage = xvimage;
-  xvimage = NULL;
 }
 
 static Picture alpha_mask(int a)
@@ -172,47 +173,10 @@ void Surface::alloc()
   if (!xv_port) {
     throw rdr::Exception("No Xv port available");
   }
-
-  // assume NV12
-  xvimage = XvShmCreateImage(fl_display, xv_port, FOURCC_NV12, NULL, width(), height(), &shm);
-  if (!xvimage) {
-    throw rdr::Exception("XvShmCreateImage");
-  }
-
-  vlog.info("Xshm image size is %d", xvimage->data_size);
-
-  shm.shmid = shmget(IPC_PRIVATE, xvimage->data_size, IPC_CREAT | 0777);
-  shm.shmaddr = (char *)shmat(shm.shmid, NULL, 0);
-  if (shm.shmaddr == (char *)-1) {
-    throw rdr::Exception("shmat");
-  }
-
-  xvimage->data = shm.shmaddr;
-  shm.readOnly = False;
-
-  if (!XShmAttach(fl_display, &shm)) {
-    throw rdr::Exception("XShmAttach");
-  }
-
-  XSync(fl_display, False);
-
-  // it will be deleted as soon as we detach later
-  shmctl(shm.shmid, IPC_RMID, NULL);
 }
 
 void Surface::dealloc()
 {
-  if (shm.shmaddr != (char *)-1) {
-    XShmDetach(fl_display, &shm);
-    XSync(fl_display, False);
-    shmdt(shm.shmaddr);
-    shm.shmaddr = (char *)-1;
-  }
-
-  if (xvimage) {
-    XFree(xvimage);
-  }
-
   if (xv_port) {
     XvUngrabPort(fl_display, xv_port, 0);
   }
