@@ -351,6 +351,10 @@ void VNCSConnectionST::sendClipboardDataOrClose(const char* data)
 
 bool VNCSConnectionST::getComparerState()
 {
+  // disable pixel comparison on framebuffer while using H.264 encoding
+  if (getPreferredEncoding() == encodingH264) {
+    return false;
+  }
   // We interpret a low compression level as an indication that the client
   // wants to prioritise CPU usage over bandwidth, and hence disable the
   // comparing update tracker.
