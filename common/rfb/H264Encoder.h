@@ -40,8 +40,6 @@ class H264Encoder : public Encoder {
 public:
   explicit H264Encoder(SConnection* conn) : Encoder(conn, encodingH264,
       EncoderFlags(EncoderUseNativePF | EncoderLossy)) {
-    init();
-
     frame_in_ = av_frame_alloc();
     frame_filtered_ = av_frame_alloc();
     pkt_out_ = av_packet_alloc();
