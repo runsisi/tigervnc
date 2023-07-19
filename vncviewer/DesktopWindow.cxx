@@ -1719,11 +1719,11 @@ void DesktopWindow::handleStatsTimeout(void *data)
   fl_draw(buffer, 5, statsHeight - 5);
 
   fl_color(FL_YELLOW);
-  fl_draw(siPrefix(self->stats[statsCount-1].pps, "pix/s").c_str(),
+  fl_draw(siPrefix(self->stats[statsCount-1].pps, "pix/s", 2).c_str(),
           5 + (statsWidth-10)/3, statsHeight - 5);
 
   fl_color(FL_RED);
-  fl_draw(siPrefix(self->stats[statsCount-1].bps * 8, "bps").c_str(),
+  fl_draw(iecPrefix(self->stats[statsCount-1].bps, "Bps", 2).c_str(),
           5 + (statsWidth-10)*2/3, statsHeight - 5);
 
   image = surface->image();
