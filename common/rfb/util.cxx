@@ -654,7 +654,7 @@ namespace rfb {
       prefix++;
     }
 
-    snprintf(buffer, sizeof(buffer), "%.*g %s%s", precision, newValue,
+    snprintf(buffer, sizeof(buffer), "%.*f %s%s", precision, newValue,
              (prefix == 0) ? "" : prefixes[prefix-1], unit);
     buffer[sizeof(buffer)-1] = '\0';
 
