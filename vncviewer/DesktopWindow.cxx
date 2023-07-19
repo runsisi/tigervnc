@@ -1628,7 +1628,7 @@ void DesktopWindow::handleStatsTimeout(void *data)
   unsigned updates, pixels, pos;
   unsigned elapsed;
 
-  const unsigned statsWidth = 200;
+  const unsigned statsWidth = 250;
   const unsigned statsHeight = 100;
   const unsigned graphWidth = statsWidth - 10;
   const unsigned graphHeight = statsHeight - 25;
