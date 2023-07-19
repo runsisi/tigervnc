@@ -73,6 +73,7 @@ public:
 
     r = encode();
     if (r < 0) {
+      deinit();
       return;
     }
 
